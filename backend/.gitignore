@@ -1,0 +1,115 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+.venv/
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Environments
+.env
+.env.local
+.env.development
+.env.production
+
+# Logs
+logs/
+*.log
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific
+.DS_Store
+
+# Custom
+data/
+temp/
+
+# Serverless
+.serverless/
+node_modules/
+serverless.yml.bak
+serverless.yml.tmp
+package-lock.json
+
+# AWS Lambda packages
+*.zip
+python/
+.requirements/
+
+# Local installation of dependencies
+.requirements.zip
+vendor/
+
+# AWS config and credentials
+.aws/
+credentials
+
+# Ignore all installed Python libraries for serverless
+# Core Python libraries
+boto3*/
+botocore*/
+fastapi*/
+pymongo*/
+uvicorn*/
+pydantic*/
+starlette*/
+mangum*/
+pytest*/
+
+# Supporting libraries
+anyio*/
+attr*/
+attrs*/
+bin/
+click*/
+dateutil*/
+dns*/
+dnspython*/
+dotenv*/
+gridfs*/
+h11*/
+idna*/
+iniconfig*/
+jmespath*/
+jwt*/
+packaging*/
+pluggy*/
+python_dateutil*/
+python_dotenv*/
+s3transfer*/
+six*.py
+sniffio*/
+typing_extensions*.py
+urllib3*/
+_pytest/
+
+# BSON library
+bson/ 

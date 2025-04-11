@@ -1,0 +1,93 @@
+service: task-management-api
+
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${opt:stage, 'dev'}
+  region: ${opt:region, 'us-east-1'}
+  environment:
+    MONGO_URI: mongodb+srv://augustoalejandro95:2jPsaQHW3K8y9TST@cluster0.xe2iqf9.mongodb.net/?retryWrites=trueMONGO_URI: ${env:MONGO_URI}w=majorityMONGO_URI: ${env:MONGO_URI}appName=Cluster0
+    JWT_SECRET: ${env:JWT_SECRET}
+    ALLOWED_ORIGINS: ${env:ALLOWED_ORIGINS, '*'}
+  httpApi:
+    cors: true
+
+package:
+  individually: true
+  patterns:
+    - '!node_modules/**'
+    - '!venv/**'
+    - '!__pycache__/**'
+    - '!tests/**'
+    - '!.pytest_cache/**'
+
+functions:
+  health_check:
+    handler: app/main.health_check
+    package:
+      patterns:
+        - app/**
+    events:
+      - httpApi:
+          path: /health
+          method: GET
+
+  get_tasks:
+    handler: app/main.get_tasks
+    package:
+      patterns:
+        - app/**
+    events:
+      - httpApi:
+          path: /tasks
+          method: GET
+  
+  create_task:
+    handler: app/main.create_task
+    package:
+      patterns:
+        - app/**
+    events:
+      - httpApi:
+          path: /tasks
+          method: POST
+  
+  update_task:
+    handler: app/main.update_task
+    package:
+      patterns:
+        - app/**
+    events:
+      - httpApi:
+          path: /tasks/{id}
+          method: PUT
+  
+  delete_task:
+    handler: app/main.delete_task
+    package:
+      patterns:
+        - app/**
+    events:
+      - httpApi:
+          path: /tasks/{id}
+          method: DELETE
+
+  login:
+    handler: app/main.login
+    package:
+      patterns:
+        - app/**
+    events:
+      - httpApi:
+          path: /auth/login
+          method: POST
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux
+    slim: true 

@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "aws": "^0.0.3-2"
+  },
+  "devDependencies": {
+    "serverless-python-requirements": "^6.1.2"
+  }
+}

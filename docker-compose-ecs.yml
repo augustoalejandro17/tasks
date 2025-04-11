@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  frontend:
+    image: 347161580021.dkr.ecr.us-east-1.amazonaws.com/task-management-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+  
+  backend:
+    image: 347161580021.dkr.ecr.us-east-1.amazonaws.com/task-management-backend:latest
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mongo
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/task-management
+      - JWT_SECRET=your-secret-key-for-production
+  
+  mongo:
+    image: 347161580021.dkr.ecr.us-east-1.amazonaws.com/task-management-mongo:latest
+    volumes:
+      - task-management-db:/data/db
+
+volumes:
+  task-management-db:
