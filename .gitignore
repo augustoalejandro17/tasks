@@ -77,3 +77,15 @@ template.yaml
 # Temporary deployment files
 *.zip
 deployment/ 
+deploy-backend-serverless.sh
+deploy-frontend.sh
+deploy.sh
+frontend-deployment-info.txt
+cors-config.json
+deploy-frontend-fix.sh
+deploy.sh
+deploy.sh
+deploy.sh
+api-cors.json
+deploy.sh
+fix-cors.sh

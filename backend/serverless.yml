@@ -8,7 +8,7 @@ provider:
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-east-1'}
   environment:
-    MONGO_URI: mongodb+srv://augustoalejandro95:2jPsaQHW3K8y9TST@cluster0.xe2iqf9.mongodb.net/?retryWrites=trueMONGO_URI: ${env:MONGO_URI}w=majorityMONGO_URI: ${env:MONGO_URI}appName=Cluster0
+    MONGO_URI: ${env:MONGO_URI}
     JWT_SECRET: ${env:JWT_SECRET}
     ALLOWED_ORIGINS: ${env:ALLOWED_ORIGINS, '*'}
   httpApi:

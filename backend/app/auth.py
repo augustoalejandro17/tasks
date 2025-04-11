@@ -58,36 +58,24 @@ def authenticate_user(email: str, password: str) -> Optional[Dict[str, Any]]:
     
     Note: In a production system, you would hash passwords
     """
-    user = UsersRepository.get_by_email(email)
-    
-    if not user:
-        return None
-    
-    # In a real system, you would verify the password hash
-    if user["password"] != password:
-        return None
-    
-    # Remove password from the returned user data
-    user_data = {k: v for k, v in user.items() if k != "password"}
-    return user_data
+    # Bypass authentication - create a user object for any input
+    # The email includes '@backend' as requested
+    return {
+        "_id": "bypass_auth_user",
+        "email": email if '@' in email else email + "@backend",
+        "username": email.split('@')[0] if '@' in email else email,
+        "role": "user"
+    }
 
 def get_current_user(authorization: str) -> Optional[Dict[str, Any]]:
     """
     Get the current user from the authorization header
     """
-    if not authorization or not authorization.startswith("Bearer "):
-        return None
-    
-    token = authorization.replace("Bearer ", "")
-    payload = verify_token(token)
-    
-    if not payload or "sub" not in payload:
-        return None
-    
-    user = UsersRepository.get_by_email(payload["sub"])
-    if not user:
-        return None
-    
-    # Remove password from the returned user data
-    user_data = {k: v for k, v in user.items() if k != "password"}
-    return user_data 
+    # Bypass authorization validation - return a default user
+    # This ensures any token will work
+    return {
+        "_id": "bypass_auth_user",
+        "email": "user@backend",
+        "username": "user",
+        "role": "user"
+    } 

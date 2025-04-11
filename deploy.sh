@@ -226,6 +226,51 @@ EOL
     echo -e "${GREEN}Installing backend dependencies in a virtual environment...${NC}"
     cd backend || { echo -e "${RED}Error: Cannot find backend directory.${NC}"; exit 1; }
     
+    # Asegurar que las variables de entorno estén disponibles
+    echo -e "${GREEN}Verificando variables de entorno necesarias...${NC}"
+    
+    # Cargar variables desde el archivo .env si existe
+    if [ -f .env ]; then
+        echo -e "${GREEN}Cargando variables desde archivo .env...${NC}"
+        export $(grep -v '^#' .env | xargs)
+    fi
+    
+    # Verificar que MONGO_URI esté configurado
+    if [ -z "$MONGO_URI" ]; then
+        echo -e "${YELLOW}MONGO_URI no está configurada. Por favor, ingrésala:${NC}"
+        read -p "MONGO_URI: " MONGO_URI
+        export MONGO_URI
+        # Actualizar archivo .env
+        sed -i.bak "s|MONGO_URI=.*|MONGO_URI=${MONGO_URI}|g" .env || echo "MONGO_URI=${MONGO_URI}" >> .env
+    fi
+    
+    # Verificar que JWT_SECRET esté configurado
+    if [ -z "$JWT_SECRET" ]; then
+        echo -e "${YELLOW}JWT_SECRET no está configurada. Usando valor generado...${NC}"
+        export JWT_SECRET=$PROD_JWT_SECRET
+        # Actualizar archivo .env
+        sed -i.bak "s|JWT_SECRET=.*|JWT_SECRET=${JWT_SECRET}|g" .env || echo "JWT_SECRET=${JWT_SECRET}" >> .env
+    else
+        # Si ya existía, usamos ese en lugar del generado
+        PROD_JWT_SECRET=$JWT_SECRET
+    fi
+    
+    # Verificar ALLOWED_ORIGINS
+    ALLOWED_ORIGINS_VALUE="https://${CLOUDFRONT_DISTRIBUTION_NAME}.cloudfront.net,http://${S3_BUCKET_NAME}.s3-website-${AWS_REGION}.amazonaws.com"
+    export ALLOWED_ORIGINS=$ALLOWED_ORIGINS_VALUE
+    
+    # Mostrar las variables configuradas (versión censurada para seguridad)
+    echo -e "${GREEN}Variables de entorno configuradas:${NC}"
+    MONGO_URI_LENGTH=${#MONGO_URI}
+    if [ $MONGO_URI_LENGTH -gt 25 ]; then
+        echo -e "${GREEN}MONGO_URI:${NC} ${MONGO_URI:0:15}...${MONGO_URI:(-10)}"
+    else
+        echo -e "${GREEN}MONGO_URI:${NC} <configurada>"
+    fi
+    
+    echo -e "${GREEN}JWT_SECRET:${NC} ${JWT_SECRET:0:5}...${JWT_SECRET:(-5)}"
+    echo -e "${GREEN}ALLOWED_ORIGINS:${NC} ${ALLOWED_ORIGINS}"
+    
     # Create and activate a virtual environment
     echo -e "${GREEN}Creating Python virtual environment...${NC}"
     python3 -m venv venv
@@ -254,15 +299,26 @@ service: task-management-api
 
 frameworkVersion: "3"
 
+# Definición de parámetros que se pueden pasar como argumentos
+params:
+  default:
+    mongoUri: ${MONGO_URI}
+    jwtSecret: ${JWT_SECRET}
+    allowedOrigins: "*"
+  prod:
+    mongoUri: ${MONGO_URI}
+    jwtSecret: ${JWT_SECRET}
+    allowedOrigins: "https://${CLOUDFRONT_DISTRIBUTION_NAME}.cloudfront.net,http://${S3_BUCKET_NAME}.s3-website-${AWS_REGION}.amazonaws.com"
+
 provider:
   name: aws
   runtime: python3.9
   stage: \${opt:stage, 'dev'}
   region: \${opt:region, 'us-east-1'}
   environment:
-    MONGO_URI: \${env:MONGO_URI}
-    JWT_SECRET: \${env:JWT_SECRET}
-    ALLOWED_ORIGINS: \${env:ALLOWED_ORIGINS, '*'}
+    MONGO_URI: \${param:mongoUri}
+    JWT_SECRET: \${param:jwtSecret}
+    ALLOWED_ORIGINS: \${param:allowedOrigins}
   httpApi:
     cors: true
 
@@ -361,9 +417,16 @@ EOL
     
     # Set environment variables for serverless deployment
     echo -e "${GREEN}Exporting environment variables for serverless deployment...${NC}"
+    # Asegurar que las variables estén correctamente exportadas con valores actuales
     export MONGO_URI
-    export JWT_SECRET=$PROD_JWT_SECRET
+    export JWT_SECRET
     export ALLOWED_ORIGINS="https://${CLOUDFRONT_DISTRIBUTION_NAME}.cloudfront.net,http://${S3_BUCKET_NAME}.s3-website-${AWS_REGION}.amazonaws.com"
+    
+    # Verificar nuevamente que las variables estén exportadas
+    echo -e "${GREEN}Verificando variables de entorno para Serverless:${NC}"
+    echo -e "${GREEN}MONGO_URI:${NC} está $(if [ -z "$MONGO_URI" ]; then echo "AUSENTE"; else echo "configurada"; fi)"
+    echo -e "${GREEN}JWT_SECRET:${NC} está $(if [ -z "$JWT_SECRET" ]; then echo "AUSENTE"; else echo "configurada"; fi)"
+    echo -e "${GREEN}ALLOWED_ORIGINS:${NC} está $(if [ -z "$ALLOWED_ORIGINS" ]; then echo "AUSENTE"; else echo "configurada"; fi)"
     
     # Deploy backend using Serverless Framework from the temp directory
     echo -e "${GREEN}Deploying backend with Serverless Framework...${NC}"
@@ -381,8 +444,44 @@ EOL
     
     # Try to deploy with serverless
     echo -e "${GREEN}Running serverless deploy...${NC}"
+    
+    # Primero intentar con las variables de entorno exportadas
     DEPLOY_OUTPUT=$(serverless deploy --verbose --stage prod 2>&1)
     DEPLOY_STATUS=$?
+    
+    # Si hay un error de resolución de variables, intentar con parámetros directos
+    if [ $DEPLOY_STATUS -ne 0 ] && echo "$DEPLOY_OUTPUT" | grep -q "Cannot resolve variable"; then
+        echo -e "${YELLOW}Error al resolver variables de entorno. Intentando con parámetros directos...${NC}"
+        
+        # Crear archivos temporales para las variables (más seguro que pasarlas en línea de comandos)
+        MONGO_URI_FILE=$(mktemp)
+        JWT_SECRET_FILE=$(mktemp)
+        echo "$MONGO_URI" > "$MONGO_URI_FILE"
+        echo "$JWT_SECRET" > "$JWT_SECRET_FILE"
+        
+        echo -e "${GREEN}Ejecutando serverless deploy con parámetros...${NC}"
+        DEPLOY_OUTPUT=$(serverless deploy --verbose --stage prod \
+            --param="mongoUri=$(cat $MONGO_URI_FILE)" \
+            --param="jwtSecret=$(cat $JWT_SECRET_FILE)" 2>&1)
+        DEPLOY_STATUS=$?
+        
+        # Limpiar archivos temporales
+        rm -f "$MONGO_URI_FILE" "$JWT_SECRET_FILE"
+        
+        # Si aún falla, intentar con una opción alternativa
+        if [ $DEPLOY_STATUS -ne 0 ] && echo "$DEPLOY_OUTPUT" | grep -q "Cannot resolve variable"; then
+            echo -e "${YELLOW}Intentando método alternativo...${NC}"
+            
+            # Modificar el archivo serverless.yml para usar valores hardcodeados (solo para fines de despliegue)
+            sed -i.bak "s|\${env:MONGO_URI}|${MONGO_URI}|g" serverless.yml
+            sed -i.bak "s|\${env:JWT_SECRET}|${JWT_SECRET}|g" serverless.yml
+            sed -i.bak "s|\${env:ALLOWED_ORIGINS, '*'}|${ALLOWED_ORIGINS}|g" serverless.yml
+            
+            echo -e "${GREEN}Archivo serverless.yml modificado con valores directos. Desplegando...${NC}"
+            DEPLOY_OUTPUT=$(serverless deploy --verbose --stage prod 2>&1)
+            DEPLOY_STATUS=$?
+        fi
+    fi
     
     # Check if deployment was successful
     if [ $DEPLOY_STATUS -ne 0 ]; then
